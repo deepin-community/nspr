@@ -1,0 +1,258 @@
+Description: add sunway support
+Author: Miao Changwei <miaochangwei@uniontech.com>
+
+---
+Last-Update: 2022-04-27
+
+--- nspr-4.32.orig/nspr/configure
++++ nspr-4.32/nspr/configure
+@@ -6850,6 +6850,14 @@ tools are selected during the Xcode/Deve
+             PR_MD_ASFILES=os_Linux_ppc.s
+         fi
+         ;;
++    sw_64)
++        $as_echo "#define _SW_64_ 1" >>confdefs.h
++
++        $as_echo "#define __sw_64 1" >>confdefs.h
++
++        CFLAGS="$CFLAGS -mieee"
++        CXXFLAGS="$CXXFLAGS -mieee"
++        ;;
+     esac
+     ;;
+ 
+--- nspr-4.32.orig/nspr/configure.in
++++ nspr-4.32/nspr/configure.in
+@@ -1713,6 +1713,12 @@ tools are selected during the Xcode/Deve
+             PR_MD_ASFILES=os_Linux_ppc.s
+         fi
+         ;;
++    sw_64)
++        AC_DEFINE(_SW_64_)
++        AC_DEFINE(__sw_64)
++        CFLAGS="$CFLAGS -mieee"
++        CXXFLAGS="$CXXFLAGS -mieee"
++        ;;
+     esac    
+     ;;
+ 
+--- nspr-4.32.orig/nspr/pr/include/gencfg.c
++++ nspr-4.32/nspr/pr/include/gencfg.c
+@@ -17,7 +17,7 @@ error - HPUX is not defined
+ #endif
+ #endif
+ 
+-#if defined(__alpha)
++#if defined(__alpha) || defined(__sw_64)
+ #if !(defined(_WIN32)) && !(defined(__linux)) && !(defined(__FreeBSD__))
+ error - None of _WIN32, __linux, or __FreeBSD__ is defined
+ #endif
+--- nspr-4.32.orig/nspr/pr/include/md/_freebsd.cfg
++++ nspr-4.32/nspr/pr/include/md/_freebsd.cfg
+@@ -65,7 +65,7 @@
+ #define PR_ALIGN_OF_DOUBLE  4
+ #define PR_ALIGN_OF_POINTER 4
+ 
+-#elif defined(__alpha__)
++#elif defined(__alpha__) || defined(__sw_64__)
+ 
+ #define IS_LITTLE_ENDIAN 1
+ #undef  IS_BIG_ENDIAN
+--- nspr-4.32.orig/nspr/pr/include/md/_freebsd.h
++++ nspr-4.32/nspr/pr/include/md/_freebsd.h
+@@ -37,6 +37,8 @@
+ #define _PR_SI_ARCHITECTURE "mips64"
+ #elif defined(__mips__)
+ #define _PR_SI_ARCHITECTURE "mips"
++#elif defined(__sw_64__)
++#define _PR_SI_ARCHITECTURE "sw_64"
+ #else
+ #error "Unknown CPU architecture"
+ #endif
+--- nspr-4.32.orig/nspr/pr/include/md/_linux.cfg
++++ nspr-4.32/nspr/pr/include/md/_linux.cfg
+@@ -128,7 +128,7 @@
+ #define PR_BYTES_PER_WORD_LOG2   2
+ #define PR_BYTES_PER_DWORD_LOG2  3
+ 
+-#elif defined(__alpha)
++#elif defined(__alpha) || defined(__sw_64)
+ 
+ #define IS_LITTLE_ENDIAN 1
+ #undef  IS_BIG_ENDIAN
+--- nspr-4.32.orig/nspr/pr/include/md/_linux.h
++++ nspr-4.32/nspr/pr/include/md/_linux.h
+@@ -73,6 +73,8 @@
+ #define _PR_SI_ARCHITECTURE "nds32"
+ #elif defined(__xtensa__)
+ #define _PR_SI_ARCHITECTURE "xtensa"
++#elif defined(__sw_64)
++#define _PR_SI_ARCHITECTURE "sw_64"
+ #else
+ #error "Unknown CPU architecture"
+ #endif
+@@ -244,6 +246,80 @@ extern PRInt32 _PR_ppc_AtomicSet(PRInt32
+ })
+ #endif
+ 
++#if defined(__sw_64)
++#define _PR_HAVE_ATOMIC_OPS
++#define _MD_INIT_ATOMIC()
++#define _MD_ATOMIC_ADD(ptr, i) ({               \
++    PRInt32 __atomic_tmp, __atomic_ret;   \
++    PRInt32 __atomic_addr;                \
++    __asm__ __volatile__(                       \
++    "   ldi     %[addr], %[val]         \n"     \
++    "1: lldw    %[ret], 0(%[addr])      \n"     \
++    "   ldi     %[tmp], 1               \n"     \
++    "   wr_f    %[tmp]                  \n"     \
++    "   addw    %[ret], %[inc], %[tmp]  \n"     \
++    "   addw    %[ret], %[inc], %[ret]  \n"     \
++    "   lstw    %[tmp], 0(%[addr])      \n"     \
++    "   rd_f    %[tmp]                  \n"     \
++    "   beq     %[tmp], 2f              \n"     \
++    ".subsection 2                      \n"     \
++    "2: br      1b                      \n"     \
++    ".previous"                                 \
++    : [ret] "=&r" (__atomic_ret),               \
++      [tmp] "=&r" (__atomic_tmp),               \
++      [addr] "=&r" (__atomic_addr),             \
++      [val] "=m" (*ptr)                         \
++    : [inc] "Ir" (i), "m" (*ptr));              \
++    __atomic_ret;                               \
++})
++#define _MD_ATOMIC_INCREMENT(ptr) _MD_ATOMIC_ADD(ptr, 1)
++#define _MD_ATOMIC_DECREMENT(ptr) ({            \
++    PRInt32 __atomic_tmp, __atomic_ret;   \
++    PRInt32 __atomic_addr;                \
++    __asm__ __volatile__(                       \
++    "   ldi     %[addr], %[val]         \n"     \
++    "1: lldw    %[ret], 0(%[addr])      \n"     \
++    "   ldi     %[tmp], 1               \n"     \
++    "   wr_f    %[tmp]                  \n"     \
++    "   subw    %[ret], 1, %[tmp]       \n"     \
++    "   subw    %[ret], 1, %[ret]       \n"     \
++    "   lstw    %[tmp], 0(%[addr])      \n"     \
++    "   rd_f    %[tmp]                  \n"     \
++    "   beq     %[tmp], 2f              \n"     \
++    ".subsection 2                      \n"     \
++    "2: br      1b                      \n"     \
++    ".previous"                                 \
++    : [ret] "=&r" (__atomic_ret),               \
++      [tmp] "=&r" (__atomic_tmp),               \
++      [addr] "=&r" (__atomic_addr),             \
++      [val] "=m" (*ptr)                         \
++    : "m" (*ptr));                              \
++    __atomic_ret;                               \
++})
++#define _MD_ATOMIC_SET(ptr, n) ({               \
++    PRInt32 __atomic_tmp, __atomic_ret;   \
++    PRInt32 __atomic_addr;                \
++    __asm__ __volatile__(                       \
++    "   ldi     %[addr], %[val]         \n"     \
++    "1: lldw    %[ret], 0(%[addr])      \n"     \
++    "   ldi     %[tmp], 1               \n"     \
++    "   wr_f    %[tmp]                  \n"     \
++    "   mov     %[newval], %[tmp]       \n"     \
++    "   lstw    %[tmp], 0(%[addr])      \n"     \
++    "   rd_f    %[tmp]                  \n"     \
++    "   beq     %[tmp], 2f              \n"     \
++    ".subsection 2                      \n"     \
++    "2: br      1b                      \n"     \
++    ".previous"                                 \
++    : [ret] "=&r" (__atomic_ret),               \
++      [tmp] "=&r"(__atomic_tmp),                \
++      [addr] "=&r" (__atomic_addr),             \
++      [val] "=m" (*ptr)                         \
++    : [newval] "Ir" (n), "m" (*ptr));           \
++    __atomic_ret;                               \
++})
++#endif
++
+ #if defined(__arm__) || defined(__aarch64__)
+ #if defined(__GCC_HAVE_SYNC_COMPARE_AND_SWAP_4)
+ /* Use GCC built-in functions */
+@@ -306,7 +382,7 @@ static inline PRInt32 _MD_ATOMIC_SET(PRI
+ #endif
+ #undef _PR_USE_POLL
+ #define _PR_STAT_HAS_ONLY_ST_ATIME
+-#if defined(__alpha) || defined(__ia64__)
++#if defined(__alpha) || defined(__ia64__) || defined(__sw_64)
+ #define _PR_HAVE_LARGE_OFF_T
+ #elif (__GLIBC__ > 2) || (__GLIBC__ == 2 && __GLIBC_MINOR__ >= 1) \
+     || defined(ANDROID)
+@@ -363,7 +439,7 @@ extern void _MD_CleanupBeforeExit(void);
+ /* aix = 64, macos = 70 */
+ #define PR_NUM_GCREGS  64
+ 
+-#elif defined(__alpha)
++#elif defined(__alpha) || defined(__sw_64)
+ /* Alpha based Linux */
+ 
+ #if defined(__GLIBC__) && __GLIBC__ >= 2
+--- nspr-4.32.orig/nspr/pr/include/md/_netbsd.cfg
++++ nspr-4.32/nspr/pr/include/md/_netbsd.cfg
+@@ -157,7 +157,7 @@
+ #define PR_ALIGN_OF_DOUBLE  8
+ #define PR_ALIGN_OF_POINTER 4
+ 
+-#elif defined(__alpha__)
++#elif defined(__alpha__) || defined(__sw_64__)
+ #define IS_LITTLE_ENDIAN 1
+ #undef  IS_BIG_ENDIAN
+ #define	HAVE_ALIGNED_DOUBLES
+--- nspr-4.32.orig/nspr/pr/include/md/_netbsd.h
++++ nspr-4.32/nspr/pr/include/md/_netbsd.h
+@@ -30,6 +30,8 @@
+ #elif defined(__arm32__) || defined(__arm__) || defined(__armel__) \
+     || defined(__armeb__)
+ #define _PR_SI_ARCHITECTURE "arm"
++#elif defined(__sw_64__)
++#define _PR_SI_ARCHITECTURE "sw_64"
+ #endif
+ 
+ #if defined(__ELF__)
+--- nspr-4.32.orig/nspr/pr/include/md/_openbsd.cfg
++++ nspr-4.32/nspr/pr/include/md/_openbsd.cfg
+@@ -206,7 +206,7 @@
+ #define PR_ALIGN_OF_DOUBLE  8
+ #define PR_ALIGN_OF_POINTER 4
+ 
+-#elif defined(__alpha__)
++#elif defined(__alpha__) || defined(__sw_64__)
+ #define IS_LITTLE_ENDIAN 1
+ #undef  IS_BIG_ENDIAN
+ #define	HAVE_ALIGNED_DOUBLES
+--- nspr-4.32.orig/nspr/pr/include/md/_openbsd.h
++++ nspr-4.32/nspr/pr/include/md/_openbsd.h
+@@ -26,6 +26,8 @@
+ #define _PR_SI_ARCHITECTURE "sparc"
+ #elif defined(__arm__)
+ #define _PR_SI_ARCHITECTURE "arm"
++#elif defined(__sw_64__)
++#define _PR_SI_ARCHITECTURE "sw_64"
+ #endif
+ 
+ #define PR_DLL_SUFFIX       ".so"
+--- nspr-4.32.orig/nspr/pr/include/pratom.h
++++ nspr-4.32/nspr/pr/include/pratom.h
+@@ -108,7 +108,7 @@ NSPR_API(PRInt32)   PR_AtomicAdd(PRInt32
+            (defined(__arm__) && \
+            defined(__GCC_HAVE_SYNC_COMPARE_AND_SWAP_4)) || \
+            defined(__aarch64__) || defined(__alpha) || \
+-           (defined(__mips__) && \
++           (defined(__mips__) || defined(__sw_64) && \
+            defined(__GCC_HAVE_SYNC_COMPARE_AND_SWAP_4)))))
+ 
+ /*
+--- nspr-4.32.orig/nspr/pr/src/md/unix/unix.c
++++ nspr-4.32/nspr/pr/src/md/unix/unix.c
+@@ -2901,7 +2901,7 @@ from_heap:
+      * to be made executable because longjmp/signal seem
+      * to put machine instructions on the stack.
+      */
+-#if defined(LINUX) && defined(__alpha)
++#if defined(LINUX) && (defined(__alpha) || defined(__sw_64))
+     prot |= PROT_EXEC;
+ #endif
+     rv = mmap((vaddr != 0) ? vaddr : lastaddr, size, prot,
