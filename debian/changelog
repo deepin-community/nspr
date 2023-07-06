@@ -1,14 +1,66 @@
-nspr (2:4.32.1-1+dde) UNRELEASED; urgency=medium
+nspr (2:4.35-1deepin1) unstable; urgency=medium
 
-  * update
+  * New upstream release.
 
- -- Maintainers of Mozilla-related packages <team+pkg-mozilla@tracker.debian.org>  Tue, 26 Jul 2022 02:52:07 -0400
+ -- Mike Hommey <glandium@debian.org>  Sun, 18 Sep 2022 06:29:06 +0900
 
-nspr (2:4.32.1-1+dde) unstable; urgency=medium
+nspr (2:4.34.1-1) unstable; urgency=medium
 
-  * Add sunway support.
+  * New upstream release.
 
- -- Miao Changwei <miaochangwei@uniontech.com>  Thu, 28 Apr 2022 02:41:10 +0800
+ -- Mike Hommey <glandium@debian.org>  Wed, 24 Aug 2022 06:54:43 +0900
+
+nspr (2:4.34-1) unstable; urgency=medium
+
+  * New upstream release.
+
+  * debian/libnspr4.symbols: Add PR_GetPrefLoopbackAddrInfo to symbols file.
+
+ -- Mike Hommey <glandium@debian.org>  Wed, 01 Jun 2022 06:21:09 +0900
+
+nspr (2:4.33-1) unstable; urgency=medium
+
+  * New upstream release.
+
+ -- Mike Hommey <glandium@debian.org>  Wed, 06 Apr 2022 09:13:06 +0900
+
+nspr (2:4.32-3) unstable; urgency=medium
+
+  * nspr/configure.in: Fix AC_CONFIG_AUX_DIR.
+
+ -- Mike Hommey <glandium@debian.org>  Sun, 21 Nov 2021 09:06:33 +0900
+
+nspr (2:4.32-2) unstable; urgency=medium
+
+  * debian/libnspr4-dev.links.in, debian/control: Remove xulrunner-nspr.pc,
+    which breaks libxmlsec1-dev (<= 1.2.33-1).
+  * debian/copyright: Use secure copyright file specification URI.
+  * debian/compat, debian/control:
+    - Bump debhelper from deprecated 9 to 13.
+    - Set debhelper-compat version in Build-Depends.
+  * debian/rules: Drop transition for old debug package migration.
+  * debian/*lintian-overrides*:
+    - Remove unused copyright-refers-to-versionless-license-file.
+    - s/shlib-without-versioned-soname/shared-library-lacks-version/
+    - s/dev-pkg-without-shlib-symlink/lacks-unversioned-link-to-shared-library/
+  * debian/watch: Upgrade watch file to version 4.
+  * debian/rules:
+    - Build with `make -s` when DEB_BUILD_OPTIONS contains terse.
+    - Enable all hardnening options.
+  * debian/control:
+    - Add Rules-Requires-Root: no.
+    - Upgrade Standards-Version to 4.6.0.
+    - Remove conflict with libnspr3-0d. The last Debian version with
+      libnspr3-0d was jessie, and it had a newer version anyways.
+    - Remove now unnecessary autotools-dev build dependency.
+  * debian/libnspr4.symbols: Add Build-Depends-Package in symbols file.
+  * debian/control, debian/rules: Always set Multi-Arch: same.
+  * debian/upstream/metadata: Add upstream bug tracking metadata.
+  * debian/libnspr4.triggers: Remove ldconfig trigger, dh_makeshlibs adds
+    it automatically.
+  * debian/not-installed: Don't install compile-et.pl and prerr.properties.
+
+ -- Mike Hommey <glandium@debian.org>  Sun, 21 Nov 2021 07:09:06 +0900
 
 nspr (2:4.32-1) unstable; urgency=medium
 
