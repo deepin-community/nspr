@@ -88,9 +88,9 @@ Last-Update: 2022-04-27
  #define _PR_SI_ARCHITECTURE "xtensa"
 +#elif defined(__sw_64)
 +#define _PR_SI_ARCHITECTURE "sw_64"
+ #elif defined(__loongarch64)
+ #define _PR_SI_ARCHITECTURE "loongarch64"
  #else
- #error "Unknown CPU architecture"
- #endif
 @@ -244,6 +246,80 @@ extern PRInt32 _PR_ppc_AtomicSet(PRInt32
  })
  #endif
